@@ -1,19 +1,26 @@
 import oracledb
 
-def connect(usr: str, pswd: str, dsn:str)->oracledb.Connection:
-    conn = oracledb.connect(usr=usr, password= pswd, dsn = dsn)
+def connect_oracle(usr: str, pswd: str, dsn:str)->oracledb.Connection:
+    conn = oracledb.connect(user=usr, password= pswd, dsn = dsn)
     conn.stmtcachesize = 50
     return conn
 
-def get_tables(conn: oracledb.Connection, schema: str) :
+def get_schema(conn: oracledb.Connection):
+    cursor = conn.cursor()
+
+    schema = cursor.execute("SELECT object_type, object_name FROM user_objects ORDER BY object_type, object_name")
+
+    return schema
+
+def get_tables(conn: oracledb.Connection, owner: str) :
     sql =  """
         SELECT table_name, temporary
         FROM   all_tables
-        WHERE  owner = :owner
+        WHERE  owner = :ownr
         ORDER  BY table_name
             """
     curs = conn.cursor()
-    curs.execute(sql, owner=schema.upper())
+    curs.execute(sql, ownr=owner)
     for column in curs.description:
         print (column)
 
@@ -35,11 +42,11 @@ def get_columns(conn: oracledb.Connection, schema: str):
     """
     curs = conn.cursor()
     curs.execute(sql, owner=schema.upper())
-    for collumn in curs.description:
-        print(collumn)
+    for column in curs.description:
+        print(column)
 
 def get_pk(schema):
-
+    return
 
 def get_fk(schema):
     return
