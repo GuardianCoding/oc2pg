@@ -50,6 +50,7 @@ def migrate(
 
     oracle_introspect.get_tables(oracle, owner=owner)
 
+    oracle_introspect.get_columns(oracle, owner)
     return
 
 def parse_inputs():
