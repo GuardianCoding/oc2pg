@@ -8,7 +8,9 @@ def connect_oracle(usr: str, pswd: str, dsn:str)->oracledb.Connection:
 def get_schema(conn: oracledb.Connection):
     cursor = conn.cursor()
 
-    schema = cursor.execute("SELECT object_type, object_name FROM user_objects ORDER BY object_type, object_name")
+    cursor.execute("SELECT object_type, object_name FROM user_objects ORDER BY object_type, object_name")
+
+    schema = cursor.fetchall()
 
     return schema
 
