@@ -51,10 +51,3 @@ def map(ora_type, precision=None, scale=None):
         if scale is not None:
             return f"{mapping}({precision})"
     return mapping
-
-
-
-
-print(map("NUMBER", 10, 2))    # numeric(10,2)
-print(map("VARCHAR2"))         # varchar
-print(map("DATE"))             # timestamp(0)
