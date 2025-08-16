@@ -175,7 +175,7 @@ with st.sidebar:
     pg_batch_rows = st.number_input("COPY batch rows", 1000, 1_000_000, 50_000, step=1000)
 
     st.header("Filters")
-    owner = st.text_input("Oracle owner/schema", "", help="Leave blank to use CURRENT_SCHEMA/USER")
+    owner = st.text_input("Oracle owner/schema", "TEST_USER")
     include_csv = st.text_input("Include tables (comma-separated)", "")
     exclude_csv = st.text_input("Exclude tables (comma-separated)", "")
 
@@ -214,7 +214,7 @@ if btn_discover:
             intro.set_current_schema(owner)
             ora_owner = owner
         else:
-            ora_owner = intro.owner
+            ora_owner = intro.cfg.owner
 
         log(f"Owner = {ora_owner or '(unknown)'}")
         update(2, "Fetching metadata from Oracle…")
