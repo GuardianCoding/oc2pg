@@ -8,3 +8,4 @@ src/__pycache__/report.cpython-310.pyc
 src/__pycache__/type_map.cpython-310.pyc
 src/__pycache__/valid.cpython-310.pyc
 .gitignore
+outfile

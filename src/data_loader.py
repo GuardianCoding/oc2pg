@@ -20,7 +20,8 @@ class DataLoader:
         self.ora = ora
         self.pg = pg
         self.out = out
-        self.out.dir.mkdir(parents=True, exist_ok=True)
+        self.out_dir = Path(out.dir)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
     
     def load_schema(self):
         """ Loads all tables in the schema from Oracle to PostgresSQL in parallel. Returns stats per table. """

@@ -87,9 +87,9 @@ def migrate(
     report = rp.Report(output)
 
     # Discovering Oracle Schema
-    # TODO
     typer.secho("1) Discovering Oracle schema...", fg="cyan")
     report.log_report("1) Discovering Oracle schema...")
+
     intro = OracleIntrospector(oracle)
     tables, table_defs, pk_defs, fk_defs, idx_defs, seq_defs = build_structures(intro, intro.owner)
 
@@ -104,15 +104,30 @@ def migrate(
     typer.secho("2) Emitting Postgres DDL...", fg="cyan")
     report.log_report("2) Emitting Postgres DDL...")
 
-    # emitter = DDLEmitter(postgres.schema, fks_deferrable=True)
-    stmts = []
-    # stmts += emitter.emit_create_schema()
-    # stmts += emitter.emit_tables(table_defs)
-    # stmts += emitter.emit_pks(pk_defs)
+    # Prepare the triplets the emitter expects
+    tables_triplets = []
+    for tname in tables:
+        cols_for_t = table_defs.get(tname, [])
+        pks_for_t  = pk_defs.get(tname)
+        tables_triplets.append(({"table_name": tname}, cols_for_t, pks_for_t))
+
+    # One deterministic plan: sequences → tables (with inline PK) → FKs → indexes
+    namemap = NameMapper()
+    ddl_sql = compose_plan(
+        schema=postgres.schema,
+        seq_defs=seq_defs,
+        tables=tables_triplets,
+        fks=fk_defs,
+        indexes=idx_defs,
+        namemap=namemap,
+    )
+
+    # Split into statements and apply (skip empties)
+    stmts = [s.strip() + ";" for s in ddl_sql.split(";") if s.strip()]
 
     typer.secho("3) Applying DDL on Postgres...", fg="cyan")
     report.log_report("3) Applying DDL on Postgres...")
-    apply_ddl.apply_statements(postgres.dsn, stmts)
+    apply_ddl.apply_statements(postgres, stmts)
     typer.secho("DDL applied", fg="green")
     report.log_report("DDL applied")
 
@@ -121,7 +136,7 @@ def migrate(
     specs = make_tablespecs(intro.owner, postgres.schema, table_defs)
     loader = data_loader.DataLoader(oracle, postgres, output)
 
-    stats = loader.load_schema(specs)
+    stats = loader.load_schema()
     ok_tables = sum(1 for s in stats.values() if s.get("status") == "ok")
     typer.secho(f"Loaded {ok_tables}/{len(specs)} tables", fg="green")
     report.log_report(f"Loaded {ok_tables}/{len(specs)} tables")
