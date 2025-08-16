@@ -64,7 +64,12 @@ def build_structures(intro: OracleIntrospector, owner: str):
     return tables, table_defs, pk_defs, fk_defs, idx_defs, seq_defs
 
 def make_tablespecs(owner: str, pg_schema: str, table_defs: Dict[str, List[dict]]) -> List[cf.TableSpec]:
-    return
+    specs: List[cf.TableSpec] = []
+    for tname, cols in table_defs.items():
+        # keep the discovered column order
+        colnames = [c["column_name"].lower() for c in cols]
+        specs.append(cf.TableSpec(owner=owner, name=tname.lower(), columns=colnames, pg_schema=pg_schema))
+    return specs
 
 #TODO add alternative way to launch program with yaml file
 
@@ -138,7 +143,7 @@ def migrate(
     specs = make_tablespecs(intro.owner, postgres.schema, table_defs)
     loader = data_loader.DataLoader(oracle, postgres, output)
 
-    stats = loader.load_schema()
+    stats = loader.load_schema(specs)
     ok_tables = sum(1 for s in stats.values() if s.get("status") == "ok")
     typer.secho(f"Loaded {ok_tables}/{len(specs)} tables", fg="green")
     report.log_report(f"Loaded {ok_tables}/{len(specs)} tables")

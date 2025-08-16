@@ -20,7 +20,7 @@ def validate_counts(oracle: OracleCfg, postgres: PostgresCfg, tables: List[str],
             pcount = pc.fetchone()[0]
             out[t] = {"oracle": ocount, "postgres": pcount, "match": (ocount == pcount)}
     except:
-        typer.secho("Error in validating row counts.", file=stderr,fg="yellow")
+        typer.secho("Error in validating row counts.", fg="yellow")
         report.log_report("Error in validating row counts.")
     finally:
         ora.close(); pg.close()
