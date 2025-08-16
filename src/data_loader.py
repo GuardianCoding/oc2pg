@@ -30,5 +30,11 @@ class DataLoader:
         self.parallelism = parallelism
         self.out_dir = Path(out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
-
     
+    def load_schema(self):
+        """ Loads all tables in the schema from Oracle to PostgresSQL in parallel. Returns stats per table. """
+        return
+    
+    def load_table(self):
+        """ Loads single table from Oracle to PostgresSQL. To be used as a thread of load_schema. """
+        return
