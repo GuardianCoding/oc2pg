@@ -20,14 +20,54 @@ ERROR_MSG = "Usage: python3 cli.py migrate "
 app = typer.Typer(add_completion=False, help="Prototype: Oracle → Postgres one-shot migration")
 
 def build_structures(intro: OracleIntrospector, owner: str):
-    return
+    """
+    Returns:
+      tables:     [table_name, ...]
+      table_defs: {table_name: [column_dict, ...]}
+      pk_defs:    {table_name: [pk_col, ...]}
+      fk_defs:    [fk_dict, ...]
+      idx_defs:   [index_dict, ...]
+      seq_defs:   [seq_dict, ...]
+    Shapes match ddl_emit.emit_* expectations.
+    """
+
+    # Tables
+    tables = [r["table_name"] for r in intro.get_tables()]   # uses ALL_TABLES filtered by owner
+
+    # Columns grouped per table
+    cols = intro.get_columns()
+    table_defs: Dict[str, List[dict]] = {}
+    for c in cols:
+        table_defs.setdefault(c["table_name"], []).append({
+            "column_name":  c["column_name"],
+            "data_type":    c["data_type"],
+            "data_precision": c.get("data_precision"),
+            "data_scale":     c.get("data_scale"),
+            "nullable":       c.get("nullable", True),
+            "data_default":   c.get("data_default"),
+        })
+
+    # Primary keys (convert list of dicts → dict[table] = [cols])
+    pk_defs: Dict[str, List[str]] = {}
+    for pk in intro.get_pk():
+        pk_defs[pk["table_name"]] = pk["columns"]
+    
+    # Foreign keys
+    fk_defs = intro.get_fk()
+
+    # Indexes (already shaped: index_name/table_name/columns/uniqueness)
+    idx_defs = intro.get_indexes()
+
+    # Sequences (already shaped)
+    seq_defs = intro.get_sequences()
+
+    return tables, table_defs, pk_defs, fk_defs, idx_defs, seq_defs
 
 def make_tablespecs(owner: str, pg_schema: str, table_defs: Dict[str, List[dict]]) -> List[data_loader.TableSpec]:
     return
 
 @app.command()
 def migrate(
-    owner: str = typer.Option(..., help="Oracle schema/owner (e.g., HR)"),
     oracle_dsn: str = typer.Option(..., help="host:port/service or EZCONNECT"),
     oracle_user: str = typer.Option(...),
     oracle_password: str = typer.Option(..., prompt=True, hide_input=True),
@@ -40,7 +80,7 @@ def migrate(
     """
     One-shot: discover → DDL → apply → copy → rowcount-validate.
     """
-    oracle = cf.OracleCfg(owner, oracle_dsn, oracle_user, oracle_password, arraysize)
+    oracle = cf.OracleCfg(oracle_dsn, oracle_user, oracle_password, arraysize)
     postgres = cf.PostgresCfg(pg_dsn, pg_schema, parallel, batch_rows)
     output = cf.OutputCfg()
 
@@ -51,7 +91,7 @@ def migrate(
     typer.secho("1) Discovering Oracle schema...", fg="cyan")
     report.log_report("1) Discovering Oracle schema...")
     intro = OracleIntrospector(oracle)
-    tables, table_defs, pk_defs = build_structures(intro, oracle.owner)
+    tables, table_defs, pk_defs, fk_defs, idx_defs, seq_defs = build_structures(intro, intro.owner)
 
     if not tables:
         report.log_report("No tables found. Exit code 1.")
@@ -78,7 +118,7 @@ def migrate(
 
     typer.secho("4) Copying data with COPY ...", fg="cyan")
     report.log_report("4) Copying data with COPY ...")
-    specs = make_tablespecs(oracle.owner, postgres.schema, table_defs)
+    specs = make_tablespecs(intro.owner, postgres.schema, table_defs)
     loader = data_loader.DataLoader(oracle, postgres, output)
 
     stats = loader.load_schema(specs)
@@ -89,7 +129,7 @@ def migrate(
     typer.secho("5) Validating (row counts)...", fg="cyan")
     report.log_report("5) Validating (row counts)...")
 
-    counts = valid.validate_counts(oracle, postgres, tables)
+    counts = valid.validate_counts(oracle, postgres, tables, intro.owner, report)
     mismatches = [t for t, r in counts.items() if not r["match"]]
     if mismatches:
         typer.secho(f"Rowcount mismatches: {mismatches}. Exit code 2", fg="yellow")

@@ -6,8 +6,7 @@ class OracleIntrospector:
     def __init__(self, oracle: OracleCfg):
         self.conn = oracledb.connect(user=oracle.user, password=oracle.password, dsn=oracle.dsn)
         self.conn.stmtcachesize = 50
-        oracle.owner = self.get_owner()
-        self.owner = oracle.owner
+        self.owner = self.get_owner()
 
     def _rows(self, cursor):
         cols = [d[0].lower() for d in cursor.description]

@@ -5,7 +5,6 @@ from pathlib import Path
 
 @dataclass
 class OracleCfg:
-    owner: str
     dsn: str
     user: str
     password: str

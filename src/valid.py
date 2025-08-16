@@ -6,7 +6,7 @@ from config import OracleCfg, PostgresCfg
 from report import Report
 import typer
 
-def validate_counts(oracle: OracleCfg, postgres: PostgresCfg, tables: List[str], report: Report) -> Dict[str, dict]:
+def validate_counts(oracle: OracleCfg, postgres: PostgresCfg, tables: List[str], owner:str, report: Report) -> Dict[str, dict]:
     out: Dict[str, dict] = {}
     ora = oracledb.connect(user=oracle.user, password=oracle.password, dsn=oracle.dsn)
     pg = psycopg.connect(postgres.dsn)
@@ -14,7 +14,7 @@ def validate_counts(oracle: OracleCfg, postgres: PostgresCfg, tables: List[str],
         oc = ora.cursor()
         pc = pg.cursor()
         for t in tables:
-            oc.execute(f'SELECT COUNT(*) FROM "{oracle.owner.upper()}"."{t.upper()}"')
+            oc.execute(f'SELECT COUNT(*) FROM "{owner.upper()}"."{t.upper()}"')
             ocount = oc.fetchone()[0]
             pc.execute(f'SELECT COUNT(*) FROM {postgres.schema}.{t.lower()}')
             pcount = pc.fetchone()[0]
