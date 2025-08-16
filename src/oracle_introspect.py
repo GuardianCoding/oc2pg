@@ -1,11 +1,13 @@
 # oracle_introspect.py
 import oracledb
+from config import OracleCfg
 
 class OracleIntrospector:
-    def __init__(self, user: str, password: str, dsn: str):
-        self.conn = oracledb.connect(user=user, password=password, dsn=dsn)
+    def __init__(self, oracle: OracleCfg):
+        self.conn = oracledb.connect(user=oracle.user, password=oracle.password, dsn=oracle.dsn)
         self.conn.stmtcachesize = 50
-        self.owner = self.get_owner()
+        oracle.owner = self.get_owner()
+        self.owner = oracle.owner
 
     def _rows(self, cursor):
         cols = [d[0].lower() for d in cursor.description]

@@ -7,10 +7,9 @@ import typer
 import oracledb
 import psycopg
 
-import oracle_introspect
 from oracle_introspect import OracleIntrospector
 import valid
-import ddl_emit
+from ddl_emit import emit_create_table, emit_constraints, emit_indexes, emit_sequences, compose_plan, NameMapper
 import apply_ddl 
 import data_loader
 import config as cf
@@ -20,7 +19,7 @@ ERROR_MSG = "Usage: python3 cli.py migrate "
 
 app = typer.Typer(add_completion=False, help="Prototype: Oracle → Postgres one-shot migration")
 
-def build_structures(intro: oracle_introspect.OracleIntrospector, owner: str):
+def build_structures(intro: OracleIntrospector, owner: str):
     return
 
 def make_tablespecs(owner: str, pg_schema: str, table_defs: Dict[str, List[dict]]) -> List[data_loader.TableSpec]:
