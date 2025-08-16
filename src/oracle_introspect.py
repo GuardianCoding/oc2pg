@@ -7,25 +7,16 @@ from config import OracleCfg
 
 
 class OracleIntrospector:
-    def __init__(
-        self,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        dsn: Optional[str] = None,
-        arraysize: int = 10_000,
-        cfg: Optional["OracleCfg"] = None,
-    ):
-        if cfg is not None:
-            user = cfg.user
-            password = cfg.password
-            dsn = cfg.dsn
-            arraysize = cfg.arraysize
-
-        if not (user and password and dsn):
-            raise ValueError("OracleIntrospector requires user, password, dsn (or cfg=OracleCfg).")
-        self.conn = oracledb.connect(user=user, password=password, dsn=dsn)
+    def __init__(self, cfg: OracleCfg):
+        """
+        Build from a Config. No direct user/password/dsn args.
+        """
+        if cfg is None:
+            raise ValueError("OracleIntrospector requires cfg: OracleCfg")
+        self.cfg = cfg
+        self.conn = oracledb.connect(user=cfg.user, password=cfg.password, dsn=cfg.dsn)
         self.conn.stmtcachesize = 50
-        self.arraysize = arraysize
+        self.arraysize = cfg.arraysize
         self.owner = self.get_owner()
 
     def _cursor(self):
