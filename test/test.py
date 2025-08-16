@@ -26,7 +26,7 @@ def _split_sql(sql: str):
         yield tail
 
 import psycopg
-import apply_ddl
+import ddl_emit
 import oracle_introspect as intro
 
 def group_by_table(rows, key="table_name"):
@@ -66,13 +66,13 @@ def main():
     tables = [({"table_name": t}, cols_by_tbl.get(t, []), pk_by_tbl.get(t)) for t in table_names]
 
     # --- Step 2: Generate Postgres DDL ---
-    sql = apply_ddl.compose_plan(
+    sql = ddl_emit.compose_plan(
         schema="public",
         seq_defs=seqs,
         tables=tables,
         fks=fks,
         indexes=idxs,
-        namemap=apply_ddl.NameMapper()
+        namemap=ddl_emit.NameMapper()
     )
     with open("output.sql", "w") as f:
         f.write(sql)
