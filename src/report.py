@@ -10,5 +10,7 @@ class Report:
         self.report += message + '\n'
 
     def print_report(self):
-        print(self.report)
+        file = open("report.md", "w+")
+        file.write(self.report)
+
     
