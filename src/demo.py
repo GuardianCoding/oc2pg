@@ -392,16 +392,60 @@ if btn_copy:
     else:
         d = st.session_state.discovery
         log("Copying data with COPY (parallel)…")
-        try:
-            loader = data_loader.DataLoader(oracle_cfg, postgres_cfg, cf.OutputCfg())
-            # If your DataLoader supports a filtered list, you could pass st.session_state.tables
-            stats = loader.load_schema()
-            ok = sum(1 for s in stats.values() if s.get("status") == "ok")
-            st.json(stats)
-            st.success(f"Loaded {ok}/{len(stats)} tables")
-            log(f"Loaded {ok}/{len(stats)} tables")
-        except Exception as e:
-            st.error(f"Copy failed: {e}")
+
+        # Build TableSpec list for the DataLoader from discovery metadata
+        cols_by_tbl: Dict[str, List[str]] = {}
+        for c in d["cols"]:
+            cols_by_tbl.setdefault(c["table_name"], []).append(c["column_name"])
+
+        wanted_tables: List[str] = d["tables"]  # already filtered by include/exclude during discovery
+        specs: List[cf.TableSpec] = [
+            cf.TableSpec(
+                owner=d["owner"],
+                name=tname,
+                columns=cols_by_tbl.get(tname, []),
+                pg_schema=postgres_cfg.schema,
+                where_clause=None,
+            )
+            for tname in wanted_tables
+        ]
+
+        if not specs:
+            st.info("No tables to copy (specs list is empty).")
+        else:
+            try:
+                # Top progress UI
+                update, done = _mk_progress(len(specs))
+                loader = data_loader.DataLoader(oracle_cfg, postgres_cfg, cf.OutputCfg())
+
+                # Use the DataLoader's bulk API to migrate all tables
+                stats = loader.load_schema(specs)
+                done()
+
+                ok = sum(1 for s in stats.values() if s.get("status") == "ok")
+                st.success(f"Loaded {ok}/{len(stats)} tables")
+                st.json(stats)
+                log(f"Loaded {ok}/{len(stats)} tables")
+
+                # Optional: quick preview of the first successfully loaded table
+                good_tables = [t for t, s in stats.items() if s.get("status") == "ok"]
+                if good_tables:
+                    sel = st.selectbox("Preview a loaded table", options=sorted(good_tables))
+                    try:
+                        cnt = pg_table_rowcount(postgres_cfg.dsn, postgres_cfg.schema, sel)
+                        st.info(f"Row count for `{sel}`: {cnt}")
+                        cols, rows = pg_sample_rows(postgres_cfg.dsn, postgres_cfg.schema, sel, limit=100)
+                        if rows:
+                            df = pd.DataFrame(rows, columns=cols)
+                            st.dataframe(df, use_container_width=True, height=300)
+                        else:
+                            st.warning("No rows to show (table is empty).")
+                    except Exception as e:
+                        st.error(f"Preview failed for {sel}: {e}")
+                else:
+                    st.info("No tables were loaded successfully to preview.")
+            except Exception as e:
+                st.error(f"Copy failed: {e}")
 
 # 5) VALIDATE
 if btn_validate:

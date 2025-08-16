@@ -50,6 +50,8 @@ class TableSpec:
         pg_schema: Target PostgreSQL schema (e.g., 'hr').
         estimated_rows: Optional row count for progress (from Oracle stats).
         where_clause: Optional Oracle SQL predicate (without 'WHERE') to restrict rows.
+        pg_table: Optional Postgres table name override (normalized via NameMapper).
+        pg_columns: Optional Postgres column name list override (normalized via NameMapper).
     """
     owner: str
     name: str
@@ -57,6 +59,8 @@ class TableSpec:
     pg_schema: str
     estimated_rows: Optional[int] = None
     where_clause: Optional[str] = None
+    pg_table: Optional[str] = None
+    pg_columns: Optional[List[str]] = None
 
 def load_config(path: str) -> Config:
     data = yaml.safe_load(Path(path).read_text())
