@@ -78,12 +78,20 @@ The steps include:
 - Bulk copy table data
 - Validate row counts
 
+To run the demo program, execute the command:
+```bash
+python3 -m streamlit run demo/demo.py
+```
+in the [oc2pg] directory of the project. This should start a localhost server, which you can connect to via a web browser, allowing for GUI interaction with the tool.
 ---
 ## AI-usage
 
-This progam's testing is written partially by the LLM ChatGPT-5. That is the files under the [test](https://github.com/GuardianCoding/oc2pg/tree/main/test) directory of the project using the promt:
+This progam's testing is written partially by the LLM ChatGPT-5. Namely, these are the files under the [test](https://github.com/GuardianCoding/oc2pg/tree/main/test) directory of the project using the promt:
 "test this function in the same format example that i have above..."
 
+This program's demo program is partially written by the LLM ChatGPT-5. Namely, these are the files under the [demo](https://github.com/GuardianCoding/oc2pg/tree/main/demo) directory of the project.
+
+This program's example bash scripts that produce dockers with sample Oracle and PostgresSQL databases are partially written by the LLM ChatGPT-5. Namely, these are the files under the [examples] (https://github.com/GuardianCoding/oc2pg/tree/main/examples) directory of the project. 
 
 
 

@@ -1,22 +1,23 @@
 # demo.py
 from __future__ import annotations
-import sys, pathlib, time
+
+import sys, pathlib, time, os
 from typing import List, Dict
 import psycopg
 from psycopg import sql
 import pandas as pd
 
 # Make "src" importable when running from repo root
-sys.path.append(str(pathlib.Path(__file__).resolve().parent / "src"))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import streamlit as st
 
 # Backend (your modules)
-from oracle_introspect import OracleIntrospector
-from ddl_emit import compose_plan, NameMapper
-import data_loader
-import valid
-import config as cf
+from src import oracle_introspect as intro
+from src import ddl_emit as emit
+from src import data_loader
+from src import valid
+from src import config as cf
 
 # ---------- Small helpers ----------
 
@@ -37,7 +38,7 @@ def pg_list_tables(dsn: str, schema: str):
 
 def expected_pg_tables_from_oracle_names(oracle_table_names: list[str]) -> list[str]:
     """Normalize Oracle table names the same way DDL emitter does, to compare against PG."""
-    nm = NameMapper()
+    nm = emit.NameMapper()
     return [nm.pg_ident(t) for t in oracle_table_names]
 
 def log(msg: str):
@@ -187,7 +188,7 @@ with st.sidebar:
 
 # Build cfgs from sidebar
 oracle_dsn = f"{ora_host}:{ora_port}/{ora_service}"
-oracle_cfg = cf.OracleCfg(dsn=oracle_dsn, user=ora_user, password=ora_pass, arraysize=int(ora_arraysize))
+oracle_cfg = cf.OracleCfg(owner=owner, dsn=oracle_dsn, user=ora_user, password=ora_pass, arraysize=int(ora_arraysize))
 pg_dsn = f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
 postgres_cfg = cf.PostgresCfg(dsn=pg_dsn, schema=pg_schema, copy_parallelism=int(pg_parallel), copy_batch_rows=int(pg_batch_rows))
 
@@ -208,7 +209,7 @@ if btn_discover:
 
     log("Connecting to Oracle and discovering schema...")
     try:
-        intro = OracleIntrospector(cfg=oracle_cfg)
+        intro = intro.OracleIntrospector(cfg=oracle_cfg)
         if owner:
             intro.set_current_schema(owner)
             ora_owner = owner
@@ -294,8 +295,8 @@ if btn_emit:
         for t in d["tables"]:
             triples.append(({"table_name": t}, cols_by_tbl.get(t, []), pk_by_tbl.get(t)))
 
-        nm = NameMapper()
-        ddl_sql = compose_plan(
+        nm = emit.NameMapper()
+        ddl_sql = emit.compose_plan(
             schema=postgres_cfg.schema,
             seq_defs=d["seqs"],
             tables=triples,
@@ -432,7 +433,7 @@ if btn_copy:
                 if good_tables:
                     sel = st.selectbox("Preview a loaded table", options=sorted(good_tables))
                     # Map Oracle table name -> Postgres identifier (same normalization as DDL emitter)
-                    nm_preview = NameMapper()
+                    nm_preview = emit.NameMapper()
                     pg_sel = nm_preview.pg_ident(sel)
                     try:
                         cnt = pg_table_rowcount(postgres_cfg.dsn, postgres_cfg.schema, pg_sel)

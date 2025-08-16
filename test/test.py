@@ -1,5 +1,10 @@
-import sys, pathlib
-sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+
+import psycopg
+from src import ddl_emit
+from src import oracle_introspect as intro
+from src import config as cf
 
 def _split_sql(sql: str):
     buf, in_s, esc = [], False, False
@@ -25,10 +30,6 @@ def _split_sql(sql: str):
     if tail:
         yield tail
 
-import psycopg
-import ddl_emit
-import oracle_introspect as intro
-
 def group_by_table(rows, key="table_name"):
     d = {}
     for r in rows:
@@ -37,10 +38,10 @@ def group_by_table(rows, key="table_name"):
 
 def main():
     # --- Step 1: Oracle introspection ---
-    ora = intro.OracleIntrospector("system", "oracle", "localhost:1521/XEPDB1")
-    print("Connected to Oracle.")
     # Target only the application schema we created in Docker, not SYSTEM
     target_owner = "TEST_USER"
+    ora = intro.OracleIntrospector(cf.OracleCfg(owner=target_owner,user="test_user", password="test_pass", dsn="localhost:1521/XEPDB1"))
+    print("Connected to Oracle.")
     try:
         with ora.conn.cursor() as c:
             c.execute("ALTER SESSION SET CURRENT_SCHEMA = TEST_USER")

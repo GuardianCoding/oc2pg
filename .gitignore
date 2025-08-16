@@ -9,3 +9,7 @@ src/__pycache__/type_map.cpython-310.pyc
 src/__pycache__/valid.cpython-310.pyc
 .gitignore
 outfile
+src/__pycache__/__init__.cpython-310.pyc
+test/__pycache__/__init__.cpython-310.pyc
+test/__pycache__/test.cpython-310.pyc
+output.sql
