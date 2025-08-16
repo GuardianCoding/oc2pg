@@ -30,11 +30,11 @@ class DataLoader:
         self.out = out
         self.out_dir = Path(out.dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Public APIs
 
     def load_schema(self, tables: List[TableSpec]) -> Dict[str, Dict[str, Any]]:
-        """ Loads all tables in the schema from Oracle to PostgresSQL, optionally in parallel. Returns stats per table. 
+        """ Loads all tables in the schema from Oracle to PostgresSQL, optionally in parallel. Returns stats per table.
 
         Args:
             tables: List of TableSpec objects to migrate.
@@ -47,7 +47,7 @@ class DataLoader:
             }
         """
         stats: Dict[str, Dict[str, Any]] = {}
-        
+
         # Sequential path
         if self.pg.copy_parallelism <= 1 or len(tables) <= 1:
             for spec in tables:
@@ -67,10 +67,10 @@ class DataLoader:
                 except Exception as e:
                     stats[spec.name] = {"status": "error", "error": repr(e)}
         return stats
-    
+
     def load_table(self, spec: TableSpec) -> Dict[str, Any]:
-        """ Loads single table from Oracle to PostgresSQL. To be used as a thread of load_schema. 
-        
+        """ Loads single table from Oracle to PostgresSQL. To be used as a thread of load_schema.
+
                 Behavior:
             - Builds a SELECT for the specified columns (and optional WHERE).
             - Iterates Oracle rows in batches.
@@ -99,13 +99,17 @@ class DataLoader:
                 # Execute SELECT
                 cur.execute(ora_sql)
 
-                # Prepare COPY statement
-                cols_sql = sql.SQL(',').join(sql.Identifier(c) for c in spec.columns)
+                # Map Oracle identifiers to Postgres target identifiers (lowercase, unquoted)
+                target_table = spec.name.lower()
+                target_cols = [c.lower() for c in spec.columns]
+
+                # Prepare COPY statement targeting Postgres identifiers
+                cols_sql = sql.SQL(',').join(sql.Identifier(c) for c in target_cols)
                 copy_stmt = sql.SQL(
-                    "COPY {}.{} ({}) FROM STDIN WITH (FORMAT csv, NULL '\\N', QUOTE '\"', ESCAPE '\"')"
+                    "COPY {}.{} ({}) FROM STDIN WITH (FORMAT csv, NULL '\\N', QUOTE '\"')"
                 ).format(
                     sql.Identifier(spec.pg_schema),
-                    sql.Identifier(spec.name),
+                    sql.Identifier(target_table),
                     cols_sql,
                 )
 
@@ -116,18 +120,36 @@ class DataLoader:
                     except Exception:
                         pass
 
-                    with pgc.copy(copy_stmt) as cp:
-                        for batch in self._iter_oracle_batches(cur, len(spec.columns)):
+                    # Temporarily relax FK enforcement during bulk load to avoid false ordering failures.
+                    # This is scoped to the current transaction via SET LOCAL.
+                    tried_relax = False
+                    try:
+                        pgc.execute("SET LOCAL session_replication_role = 'replica';")
+                        tried_relax = True
+                    except Exception:
+                        # If not allowed (e.g., lacking perms), continue normally.
+                        tried_relax = False
+
+                    try:
+                        with pgc.copy(copy_stmt) as cp:
+                            for batch in self._iter_oracle_batches(cur, len(spec.columns)):
+                                try:
+                                    payload = self._rows_to_csv_bytes(batch)
+                                    cp.write(payload)
+                                    total_rows += len(batch)
+                                except Exception as e:
+                                    failed_batches += 1
+                                    self._log_bad_batch(spec, batch, e)
+                    finally:
+                        # Restore normal constraint checking scope if we changed it
+                        if tried_relax:
                             try:
-                                payload = self._rows_to_csv_bytes(batch)
-                                cp.write(payload)
-                                total_rows += len(batch)
-                            except Exception as e:
-                                failed_batches += 1
-                                self._log_bad_batch(spec, batch, e)
+                                pgc.execute("SET LOCAL session_replication_role = 'origin';")
+                            except Exception:
+                                pass
 
         return {"status": "ok", "rows": total_rows, "failed_batches": failed_batches}
-    
+
     # Oracle helpers
 
     def _oracle_select(self, spec: TableSpec) -> str:
@@ -184,7 +206,7 @@ class DataLoader:
             if default_type in (oracledb.DB_TYPE_BLOB, oracledb.DB_TYPE_LONG_RAW, oracledb.DB_TYPE_RAW):
                 return cursor.var(oracledb.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
         cur.outputtypehandler = handler
-    
+
     def _iter_oracle_batches(
         self,
         cur: oracledb.Cursor,
@@ -236,7 +258,7 @@ class DataLoader:
         """
         buf = io.StringIO()
         writer = csv.writer(
-            buf, lineterminator="\n", quoting=csv.QUOTE_MINIMAL, escapechar='"', doublequote=True
+            buf, lineterminator="\n", quoting=csv.QUOTE_MINIMAL, doublequote=True
         )
         for row in rows:
             writer.writerow([self._to_csv_field(v) for v in row])
@@ -264,10 +286,10 @@ class DataLoader:
             return v.isoformat()
         if isinstance(v, (bytes, bytearray, memoryview)):
             return "\\x" + bytes(v).hex()
-        
+
         # Fallback to string if all else fails
         return str(v)
-    
+
     # Postgres Helpers
 
     @contextmanager
@@ -318,7 +340,7 @@ class DataLoader:
             Double-quoted identifier, preserving case/special chars as needed.
         """
         return '"' + name.replace('"', '""').upper() + '"'
-    
+
     # Diagnostics
 
     def _log_bad_batch(
@@ -327,7 +349,7 @@ class DataLoader:
         rows: Sequence[Sequence[Any]],
         err: Exception,
         out_dir: Optional[Path] = None,
-    ) -> None:
+    ) -> Optional[Path]:
         """
         Persist a failed batch to disk for debugging, then continue with the next batch.
 
@@ -348,6 +370,7 @@ class DataLoader:
             with open(path, "wb") as f:
                 f.write(self._rows_to_csv_bytes(rows))
             sys.stderr.write(f"[WARN] Failed batch for {spec.name}: {err!r}. Saved to {path}\n")
+            return path
         except Exception:
             # best-effort logging only
-            pass
+            return None

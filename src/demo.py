@@ -159,8 +159,8 @@ with st.sidebar:
     ora_host = st.text_input("Oracle host", "localhost")
     ora_port = st.number_input("Oracle port", 1, 65535, 1521)
     ora_service = st.text_input("Oracle service", "XEPDB1")
-    ora_user = st.text_input("Oracle user", "system")
-    ora_pass = st.text_input("Oracle password", type="password", value="oracle")
+    ora_user = st.text_input("Oracle user", "test_user")
+    ora_pass = st.text_input("Oracle password", type="password", value="test_pass")
     ora_arraysize = st.number_input("Oracle arraysize", 1000, 500000, 10000, step=1000)
 
     # Postgres
@@ -431,17 +431,20 @@ if btn_copy:
                 good_tables = [t for t, s in stats.items() if s.get("status") == "ok"]
                 if good_tables:
                     sel = st.selectbox("Preview a loaded table", options=sorted(good_tables))
+                    # Map Oracle table name -> Postgres identifier (same normalization as DDL emitter)
+                    nm_preview = NameMapper()
+                    pg_sel = nm_preview.pg_ident(sel)
                     try:
-                        cnt = pg_table_rowcount(postgres_cfg.dsn, postgres_cfg.schema, sel)
-                        st.info(f"Row count for `{sel}`: {cnt}")
-                        cols, rows = pg_sample_rows(postgres_cfg.dsn, postgres_cfg.schema, sel, limit=100)
+                        cnt = pg_table_rowcount(postgres_cfg.dsn, postgres_cfg.schema, pg_sel)
+                        st.info(f"Row count for `{sel}` (PG: `{pg_sel}`): {cnt}")
+                        cols, rows = pg_sample_rows(postgres_cfg.dsn, postgres_cfg.schema, pg_sel, limit=100)
                         if rows:
                             df = pd.DataFrame(rows, columns=cols)
                             st.dataframe(df, use_container_width=True, height=300)
                         else:
                             st.warning("No rows to show (table is empty).")
                     except Exception as e:
-                        st.error(f"Preview failed for {sel}: {e}")
+                        st.error(f"Preview failed for {sel} (PG: {pg_sel}): {e}")
                 else:
                     st.info("No tables were loaded successfully to preview.")
             except Exception as e:
