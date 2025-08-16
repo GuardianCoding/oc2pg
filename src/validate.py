@@ -2,19 +2,20 @@ import oracledb
 import psycopg
 from sys import stderr
 from typing import List, Dict
+from config import OracleCfg, PostgresCfg
+from report import Report
 
-def validate_counts(oracle_dsn: str, oracle_user: str, oracle_password: str,
-                    pg_dsn: str, owner: str, pg_schema: str, tables: List[str]) -> Dict[str, dict]:
+def validate_counts(oracle: OracleCfg, pg: PostgresCfg, tables: List[str]) -> Dict[str, dict]:
     out: Dict[str, dict] = {}
-    ora = oracledb.connect(user=oracle_user, password=oracle_password, dsn=oracle_dsn)
-    pg = psycopg.connect(pg_dsn)
+    ora = oracledb.connect(user=oracle.user, password=oracle.password, dsn=oracle.dsn)
+    pg = psycopg.connect(pg.dsn)
     try:
         oc = ora.cursor()
         pc = pg.cursor()
         for t in tables:
-            oc.execute(f'SELECT COUNT(*) FROM "{owner.upper()}"."{t.upper()}"')
+            oc.execute(f'SELECT COUNT(*) FROM "{oracle.owner.upper()}"."{t.upper()}"')
             ocount = oc.fetchone()[0]
-            pc.execute(f'SELECT COUNT(*) FROM {pg_schema}.{t.lower()}')
+            pc.execute(f'SELECT COUNT(*) FROM {pg.schema}.{t.lower()}')
             pcount = pc.fetchone()[0]
             out[t] = {"oracle": ocount, "postgres": pcount, "match": (ocount == pcount)}
     except:

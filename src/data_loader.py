@@ -4,6 +4,7 @@ from pathlib import Path
 import oracledb
 import psycopg
 import cli
+from config import OracleCfg, PostgresCfg, OutputCfg
 
 class DataLoader:
     """
@@ -12,24 +13,14 @@ class DataLoader:
     """
     def __init__(
         self,
-        ora_dsn: str,
-        ora_user: str,
-        ora_password: str,
-        pg_dsn: str,
-        arraysize: int = 10_000,
-        copy_batch_rows: int = 50_000,
-        parallelism: int = 4,
-        out_dir: str = "./out",
+        ora: OracleCfg,
+        pg: PostgresCfg,
+        out: OutputCfg
     ):
-        self.ora_dsn = ora_dsn
-        self.ora_user = ora_user
-        self.ora_password = ora_password
-        self.pg_dsn = pg_dsn
-        self.arraysize = arraysize
-        self.copy_batch_rows = copy_batch_rows
-        self.parallelism = parallelism
-        self.out_dir = Path(out_dir)
-        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.ora = ora
+        self.pg = pg
+        self.out = out
+        self.out.dir.mkdir(parents=True, exist_ok=True)
     
     def load_schema(self):
         """ Loads all tables in the schema from Oracle to PostgresSQL in parallel. Returns stats per table. """
