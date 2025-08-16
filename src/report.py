@@ -4,14 +4,12 @@ class Report:
     """ Reporter class that can be logged to and tracks what to be displayed to user at the end of operation. """
     
     def __init__(self, out: OutputCfg):
-        self.report = ""
-        self.report_file = out.report_md
+        self.report = out.report_md
+        file = open(self.report, "w")
+        file.close()
 
     def log_report(self, message: str):
-        self.report += message + '\n'
-
-    def print_report(self):
-        file = open(self.report_file, "w+")
-        file.write(self.report)
+        with open(self.report, "a+") as file:
+            file.write(message)
 
     

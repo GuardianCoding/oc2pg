@@ -3,3 +3,8 @@ src/__pycache__/cli.cpython-310.pyc
 src/__pycache__/data_loader.cpython-310.pyc
 src/__pycache__/ddl_emit.cpython-310.pyc
 src/__pycache__/oracle_introspect.cpython-310.pyc
+src/__pycache__/config.cpython-310.pyc
+src/__pycache__/report.cpython-310.pyc
+src/__pycache__/type_map.cpython-310.pyc
+src/__pycache__/valid.cpython-310.pyc
+.gitignore
