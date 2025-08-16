@@ -20,8 +20,8 @@ dict = {
     "CLOB" : "text",
     "NCLOB" : "text",
     "BFILE" : "bytea",
-    "ROWID" : "ctid",
-    "UROWID" : "UUID",
+    "ROWID" : "tid",
+    "UROWID" : "uuid",
     "CHARACTER" : "char",
     #"spatial_types" : "",
     #"media_types" : "",
@@ -37,11 +37,7 @@ dict = {
     "JSON" : "jsonb",
 }
 
-
-
-def map(ora_type, precision=None, scale=None):
-    """
-    """
+def map_type(ora_type, precision=None, scale=None):
     mapping = dict.get(ora_type)
     if mapping is None:
         return
