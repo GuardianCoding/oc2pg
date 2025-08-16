@@ -17,7 +17,6 @@ class OracleIntrospector:
         self.conn = oracledb.connect(user=cfg.user, password=cfg.password, dsn=cfg.dsn)
         self.conn.stmtcachesize = 50
         self.arraysize = cfg.arraysize
-        self.owner = self.get_owner()
 
     def _cursor(self):
         cur = self.conn.cursor()
@@ -33,22 +32,10 @@ class OracleIntrospector:
         with self._cursor() as cur:
             try:
                 cur.execute(f"ALTER SESSION SET CURRENT_SCHEMA = {owner}")
-                self.owner = owner
+                self.cfg.owner = owner
             except Exception:
                 # harmless if lacking privileges; callers can pass owner explicitly
                 pass
-
-    def get_owner(self) -> str:
-        with self._cursor() as cur:
-            cur.execute("SELECT SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM dual")
-            row = cur.fetchone()
-            owner = (row[0] if row and row[0] else None)
-            if not owner:
-                cur.execute("SELECT USER FROM dual")
-                row = cur.fetchone()
-                owner = row[0] if row else None
-        return owner or ""
-
 
     def get_schema(self) -> List[Dict]:
         with self._cursor() as cur:
@@ -66,7 +53,7 @@ class OracleIntrospector:
         include_tables: Optional[Iterable[str]] = None,
         exclude_tables: Optional[Iterable[str]] = None,
     ) -> List[Dict]:
-        owner = owner or self.owner
+        owner = owner or self.cfg.owner
         sql = """
             SELECT table_name, temporary
             FROM   all_tables
@@ -87,7 +74,7 @@ class OracleIntrospector:
         return rows
 
     def get_columns(self, owner: Optional[str] = None) -> List[Dict]:
-        owner = owner or self.owner
+        owner = owner or self.cfg.owner
         sql = """
             SELECT table_name,
                    column_name,
@@ -111,7 +98,7 @@ class OracleIntrospector:
         return rows
 
     def get_pk(self, owner: Optional[str] = None) -> List[Dict]:
-        owner = owner or self.owner
+        owner = owner or self.cfg.owner
         sql = """
             SELECT c.table_name,
                    c.constraint_name,
@@ -140,7 +127,7 @@ class OracleIntrospector:
         return result
 
     def get_fk(self, owner: Optional[str] = None) -> List[Dict]:
-        owner = owner or self.owner
+        owner = owner or self.cfg.owner
         sql = """
             SELECT fk.constraint_name AS fk_name,
                    fk.table_name      AS fk_table,
@@ -188,7 +175,7 @@ class OracleIntrospector:
         return out
 
     def get_indexes(self, owner: Optional[str] = None) -> List[Dict]:
-        owner = owner or self.owner
+        owner = owner or self.cfg.owner
         idx_sql = """
             SELECT index_name, table_name, uniqueness
             FROM   all_indexes
@@ -225,7 +212,7 @@ class OracleIntrospector:
         return out
 
     def get_sequences(self, owner: Optional[str] = None) -> List[Dict]:
-        owner = owner or self.owner
+        owner = owner or self.cfg.owner
         sql = """
             SELECT sequence_name,
                    increment_by,

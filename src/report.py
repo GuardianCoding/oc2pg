@@ -10,7 +10,7 @@ class Report:
 
     def log_report(self, message: str):
         with open(self.report, "a+") as file:
-            file.write(message)
+            file.write(str(message))
             file.write("\n")
 
     

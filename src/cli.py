@@ -75,6 +75,7 @@ def make_tablespecs(owner: str, pg_schema: str, table_defs: Dict[str, List[dict]
 
 @app.command()
 def migrate(
+    owner: str = typer.Option(..., help="Oracle schema/owner (e.g., HR)"),
     oracle_dsn: str = typer.Option(..., help="host:port/service or EZCONNECT"),
     oracle_user: str = typer.Option(...),
     oracle_password: str = typer.Option(..., prompt=True, hide_input=True),
@@ -87,7 +88,7 @@ def migrate(
     """
     One-shot: discover → DDL → apply → copy → rowcount-validate.
     """
-    oracle = cf.OracleCfg(oracle_dsn, oracle_user, oracle_password, arraysize)
+    oracle = cf.OracleCfg(owner, oracle_dsn, oracle_user, oracle_password, arraysize)
     postgres = cf.PostgresCfg(pg_dsn, pg_schema, parallel, batch_rows)
     output = cf.OutputCfg()
 
@@ -98,7 +99,7 @@ def migrate(
     report.log_report("1) Discovering Oracle schema...")
 
     intro = OracleIntrospector(oracle)
-    tables, table_defs, pk_defs, fk_defs, idx_defs, seq_defs = build_structures(intro, intro.owner)
+    tables, table_defs, pk_defs, fk_defs, idx_defs, seq_defs = build_structures(intro, oracle.owner)
 
     if not tables:
         report.log_report("No tables found. Exit code 1.")
@@ -140,7 +141,7 @@ def migrate(
 
     typer.secho("4) Copying data with COPY ...", fg="cyan")
     report.log_report("4) Copying data with COPY ...")
-    specs = make_tablespecs(intro.owner, postgres.schema, table_defs)
+    specs = make_tablespecs(oracle.owner, postgres.schema, table_defs)
     loader = data_loader.DataLoader(oracle, postgres, output)
 
     stats = loader.load_schema(specs)
@@ -151,7 +152,7 @@ def migrate(
     typer.secho("5) Validating (row counts)...", fg="cyan")
     report.log_report("5) Validating (row counts)...")
 
-    counts = valid.validate_counts(oracle, postgres, tables, intro.owner, report)
+    counts = valid.validate_counts(oracle, postgres, tables, oracle.owner, report)
     mismatches = [t for t, r in counts.items() if not r["match"]]
     if mismatches:
         typer.secho(f"Rowcount mismatches: {mismatches}. Exit code 2", fg="yellow")
