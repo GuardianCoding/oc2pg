@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 import yaml
 from pathlib import Path
 
@@ -37,6 +37,26 @@ class Config:
     postgres: PostgresCfg
     migrate: MigrateCfg
     output: OutputCfg
+
+@dataclass
+class TableSpec:
+    """
+    Description of one table to load.
+
+    Attributes:
+        owner: Oracle schema/owner (e.g., 'HR').
+        name: Oracle table name (e.g., 'EMPLOYEES').
+        columns: Ordered list of column names to select/copy.
+        pg_schema: Target PostgreSQL schema (e.g., 'hr').
+        estimated_rows: Optional row count for progress (from Oracle stats).
+        where_clause: Optional Oracle SQL predicate (without 'WHERE') to restrict rows.
+    """
+    owner: str
+    name: str
+    columns: List[str]
+    pg_schema: str
+    estimated_rows: Optional[int] = None
+    where_clause: Optional[str] = None
 
 def load_config(path: str) -> Config:
     data = yaml.safe_load(Path(path).read_text())

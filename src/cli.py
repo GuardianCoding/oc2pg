@@ -63,8 +63,10 @@ def build_structures(intro: OracleIntrospector, owner: str):
 
     return tables, table_defs, pk_defs, fk_defs, idx_defs, seq_defs
 
-def make_tablespecs(owner: str, pg_schema: str, table_defs: Dict[str, List[dict]]) -> List[data_loader.TableSpec]:
+def make_tablespecs(owner: str, pg_schema: str, table_defs: Dict[str, List[dict]]) -> List[cf.TableSpec]:
     return
+
+#TODO add alternative way to launch program with yaml file
 
 @app.command()
 def migrate(
