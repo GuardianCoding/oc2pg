@@ -55,6 +55,43 @@ def ensure_state():
     if "tables" not in st.session_state:
         st.session_state.tables = []
 
+def ensure_action_state():
+    if "done" not in st.session_state:
+        st.session_state.done = {
+            "discover": False,
+            "emit": False,
+            "apply": False,
+            "copy": False,
+            "validate": False,
+        }
+
+def render_action(label: str, key: str, done_key: str) -> bool:
+    """
+    Render an action control:
+    - If not done: show a normal Streamlit button and return its boolean.
+    - If done: show a green, disabled HTML button (visual indicator) and return False.
+    """
+    if st.session_state.done.get(done_key, False):
+        st.markdown(
+            f"""
+            <button disabled
+                    style="width:100%;
+                           background:#16a34a;
+                           color:white;
+                           padding:0.6rem 1rem;
+                           border:none;
+                           border-radius:0.5rem;
+                           opacity:1;">
+                {label} ✓
+            </button>
+            """,
+            unsafe_allow_html=True
+        )
+        return False
+    else:
+        return st.button(label, key=key)
+
+
 def _mk_progress(total: int):
     """
     Creates a top-of-page progress bar and status line.
@@ -142,6 +179,9 @@ st.set_page_config(page_title="OC2PG Demo", layout="wide")
 st.title("Oracle → PostgreSQL Demo")
 
 ensure_state()
+ensure_state()
+ensure_action_state()
+
 
 col1, col2 = st.columns([2, 1])
 with col1:
@@ -180,11 +220,11 @@ with st.sidebar:
     exclude_csv = st.text_input("Exclude tables (comma-separated)", "")
 
     st.header("Actions")
-    btn_discover = st.button("1) Discover")
-    btn_emit     = st.button("2) Generate DDL")
-    btn_apply    = st.button("3) Apply DDL")
-    btn_copy     = st.button("4) Copy Data (COPY)")
-    btn_validate = st.button("5) Validate Row Counts")
+    btn_discover = render_action("1) Discover", "btn_discover", "discover")
+    btn_emit     = render_action("2) Generate DDL", "btn_emit", "emit")
+    btn_apply    = render_action("3) Apply DDL", "btn_apply", "apply")
+    btn_copy     = render_action("4) Copy Data (COPY)", "btn_copy", "copy")
+    btn_validate = render_action("5) Validate Row Counts", "btn_validate", "validate")
 
 # Build cfgs from sidebar
 oracle_dsn = f"{ora_host}:{ora_port}/{ora_service}"
@@ -287,6 +327,14 @@ if btn_discover:
             st.metric("Indexes", len(idxs))
             st.metric("Sequences", len(seqs))
         update(4, "Discovery complete.")
+
+        # Mark 'discover' done and reset later steps
+        st.session_state.done["discover"] = True
+        st.session_state.done["emit"] = False
+        st.session_state.done["apply"] = False
+        st.session_state.done["copy"] = False
+        st.session_state.done["validate"] = False
+
         done()
     except Exception as e:
         done()
@@ -330,6 +378,12 @@ if btn_emit:
             namemap=nm
         )
         st.session_state.ddl_sql = ddl_sql
+
+        st.session_state.done["emit"] = True
+        st.session_state.done["apply"] = False
+        st.session_state.done["copy"] = False
+        st.session_state.done["validate"] = False
+
         st.code(ddl_sql, language="sql")
         update(2, "DDL generation complete.")
         done()
@@ -352,6 +406,12 @@ if btn_apply:
                     st.code(sql, language="sql")
         else:
             st.success("DDL applied cleanly.")
+            
+            # Only mark done if there were no errors
+            st.session_state.done["apply"] = True
+            st.session_state.done["copy"] = False
+            st.session_state.done["validate"] = False
+
         done()
         log("DDL phase done.")
 
@@ -446,6 +506,10 @@ if btn_copy:
 
                 # Use the DataLoader's bulk API to migrate all tables
                 stats = loader.load_schema(specs)
+
+                st.session_state.done["copy"] = True
+                st.session_state.done["validate"] = False
+
                 done()
 
                 ok = sum(1 for s in stats.values() if s.get("status") == "ok")
@@ -491,6 +555,9 @@ if btn_validate:
                 st.warning(f"Rowcount mismatches: {mismatches}")
             else:
                 st.success("All table counts match!")
+
+            st.session_state.done["validate"] = True
+
             log("Validation finished.")
         except Exception as e:
             st.error(f"Validation failed: {e}")
