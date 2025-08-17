@@ -241,8 +241,33 @@ if btn_discover:
         update(3, "Rendering previews…")
 
         if tables:
-            st.write("### Discovered Tables in Orcale")
-            st.table(tables)
+            #st.write("### Discovered Tables in Orcale")
+            #st.table(tables)
+            # Build dataframe with estimated row counts (NUM_ROWS)
+            sizes_df = pd.DataFrame(
+                [{"Table": r["table_name"], "Rows (Oracle est.)": r.get("num_rows")} for r in tables_raw]
+            ).sort_values("Table").reset_index(drop=True)
+
+            st.write("### Discovered Tables in Oracle")
+            st.dataframe(sizes_df, use_container_width=True, height=360)
+
+            # quick metrics
+            st.caption(
+                f"Tables: **{len(tables)}** · With estimates: "
+                f"**{sum(1 for r in tables_raw if r.get('num_rows') is not None)}**"
+            )
+            with st.expander("Compute exact counts (COUNT(*)) for selected tables"):
+                pick = st.multiselect(
+                    "Choose tables (COUNT(*) can be slow on very large tables):",
+                    options=tables,
+                    max_selections=10,
+                )
+                if st.button("Compute exact counts"):
+                    exact = []
+                    for t in pick:
+                        n = intro.count_table(owner=ora_owner or oracle_cfg.owner, table_name=t)
+                        exact.append({"Table": t, "COUNT(*)": n})
+                    st.dataframe(pd.DataFrame(exact), use_container_width=True)
         else:
             st.info("No tables discovered.")
 

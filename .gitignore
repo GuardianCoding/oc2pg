@@ -13,3 +13,5 @@ src/__pycache__/__init__.cpython-310.pyc
 test/__pycache__/__init__.cpython-310.pyc
 test/__pycache__/test.cpython-310.pyc
 output.sql
+demo/__pycache__/__init__.cpython-310.pyc
+demo/__pycache__/demo.cpython-310.pyc

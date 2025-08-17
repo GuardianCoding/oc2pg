@@ -55,8 +55,10 @@ class OracleIntrospector:
     ) -> List[Dict]:
         owner = owner or self.cfg.owner
         sql = """
-            SELECT table_name, temporary
-            FROM   all_tables
+            SELECT table_name, 
+                    temporary,
+                    num_rows
+            FROM all_tables
             WHERE  owner = :owner
             ORDER  BY table_name
         """
@@ -71,6 +73,10 @@ class OracleIntrospector:
         if exclude_tables:
             drop = {t.lower() for t in exclude_tables}
             rows = [r for r in rows if r["table_name"].lower() not in drop]
+        # normalize NUM_ROWS (may be NULL if stats are stale/missing)
+        for r in rows:
+            if "num_rows" in r and r["num_rows"] is not None:
+                r["num_rows"] = int(r["num_rows"])
         return rows
 
     def get_columns(self, owner: Optional[str] = None) -> List[Dict]:
@@ -229,3 +235,22 @@ class OracleIntrospector:
         with self._cursor() as cur:
             cur.execute(sql, owner=owner)
             return self._rows(cur)
+        
+    def count_table(self, owner: Optional[str], table_name: str) -> Optional[int]:
+        """
+        Return exact COUNT(*) for owner.table_name, or None on error.
+        NOTE: This can be slow on huge tables. Prefer NUM_ROWS for quick sizing.
+        """
+        owner = (owner or self.cfg.owner) or ""
+        
+        # Use quoted identifiers to be safe with mixed case/special chars.
+        qowner = owner.replace('"', '""')
+        qtable = table_name.replace('"', '""')
+        sql = f'SELECT COUNT(*) FROM "{qowner}"."{qtable}"'
+        try:
+            with self._cursor() as cur:
+                cur.execute(sql)
+                n, = cur.fetchone()
+                return int(n)
+        except Exception:
+            return None
